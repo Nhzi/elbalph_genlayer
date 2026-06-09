@@ -1,0 +1,14 @@
+node_modules/
+.next/
+dist/
+__pycache__/
+*.pyc
+.env
+.env.local
+.venv/
+.pytest_cache/
+.DS_Store
+frontend/.next/
+frontend/out/
+deploy/.cache/
+contracts.json

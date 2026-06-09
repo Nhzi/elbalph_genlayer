@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+  background: radial-gradient(ellipse at top, #1a1530 0%, #0a0a0f 60%);
+  color: #f5f5f7;
+}
+
+body {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  .chip {
+    @apply rounded-xl bg-chip border border-white/5 shadow-glow;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold
+           transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-neon-green text-black hover:brightness-110 shadow-glow;
+  }
+  .btn-secondary {
+    @apply btn bg-white/5 text-white hover:bg-white/10;
+  }
+  .btn-pink {
+    @apply btn bg-neon-pink text-black hover:brightness-110 shadow-pinkglow;
+  }
+  .pill {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-medium border border-white/10;
+  }
+}
+
+/* Hide noisy scrollbars in betting lists */
+.scroll-soft::-webkit-scrollbar { width: 6px; height: 6px; }
+.scroll-soft::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }

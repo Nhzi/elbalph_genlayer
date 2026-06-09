@@ -1,0 +1,19 @@
+{
+  "name": "genbet",
+  "version": "1.0.0",
+  "description": "Sports + casino on **GenLayer** — bet at the speed of AI consensus.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "genlayer-js": "^1.1.8"
+  }
+}
