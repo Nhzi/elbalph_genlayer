@@ -3,8 +3,8 @@
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { BetSlip } from '@/components/BetSlip';
-import { playRoulette } from '@/lib/contracts';
-import { fmtGen, gen } from '@/lib/genlayer';
+import { playRoulette, playRouletteElf } from '@/lib/contracts';
+import { fmtGen, gen, elf, ELF_TOKEN_ADDRESS } from '@/lib/genlayer';
 
 const Roulette3D = dynamic(() => import('@/components/three/Roulette3D').then((m) => m.Roulette3D), {
   ssr: false,
@@ -24,7 +24,9 @@ export default function RoulettePage() {
     setPayout(null);
     setSpinning(true);
     try {
-      const round = await playRoulette(betType, betNumber, gen(amount));
+      const round = ELF_TOKEN_ADDRESS
+        ? await playRouletteElf(betType, betNumber, elf(amount))
+        : await playRoulette(betType, betNumber, gen(amount));
       setSpin(round?.detail?.spin ?? null);
       setPayout(round?.payout ?? '0');
     } finally {
@@ -43,7 +45,7 @@ export default function RoulettePage() {
               Landed on {spin}{' '}
               {payout !== '0' ? <span className="text-neon-green">— Win</span> : <span className="text-white/50">— Lose</span>}
             </div>
-            <div className="font-mono">Payout: {fmtGen(payout)} GEN</div>
+            <div className="font-mono">Payout: {fmtGen(payout)} ELF</div>
           </div>
         )}
       </div>

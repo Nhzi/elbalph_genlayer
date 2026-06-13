@@ -3,8 +3,8 @@
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { BetSlip } from '@/components/BetSlip';
-import { playSlots } from '@/lib/contracts';
-import { fmtGen, gen } from '@/lib/genlayer';
+import { playSlots, playSlotsElf } from '@/lib/contracts';
+import { fmtGen, gen, elf, ELF_TOKEN_ADDRESS } from '@/lib/genlayer';
 
 const SlotMachine3D = dynamic(
   () => import('@/components/three/SlotMachine3D').then((m) => m.SlotMachine3D),
@@ -21,7 +21,9 @@ export default function SlotsPage() {
     setPayout(null);
     setSpinning(true);
     try {
-      const round = await playSlots(gen(amount));
+      const round = ELF_TOKEN_ADDRESS
+        ? await playSlotsElf(elf(amount))
+        : await playSlots(gen(amount));
       setReels(round?.detail?.reels ?? null);
       setPayout(round?.payout ?? '0');
     } finally {
@@ -40,7 +42,7 @@ export default function SlotsPage() {
             <div className="font-mono">
               Payout:{' '}
               <span className={payout === '0' ? 'text-white/50' : 'text-neon-green'}>
-                {fmtGen(payout)} GEN
+                {fmtGen(payout)} ELF
               </span>
             </div>
           </div>

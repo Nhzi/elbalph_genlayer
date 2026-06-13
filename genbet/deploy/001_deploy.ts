@@ -28,6 +28,27 @@ export default async function main(client: GenLayerClient<any>) {
 
   const sportsbook = await deployContract(client, 'contracts/sportsbook.py', []);
   const casino = await deployContract(client, 'contracts/casino.py', []);
+  const elfToken = await deployContract(client, 'contracts/elf_token.py', []);
+
+  // Add casino (bankroll) + sportsbook as ELF minters so they can settle bets.
+  console.log('🪙  Authorizing casino + sportsbook as ELF minters…');
+  for (const addr of [casino, sportsbook]) {
+    const tx = await client.writeContract({
+      address: elfToken as `0x${string}`,
+      functionName: 'add_minter',
+      args: [addr],
+    });
+    await client.waitForTransactionReceipt({ hash: tx, retries: 200 });
+  }
+
+  // Tell the casino where the ELF token lives so it can settle gasless bets.
+  console.log('🔗  Wiring casino → ELF token…');
+  const wireTx = await client.writeContract({
+    address: casino as `0x${string}`,
+    functionName: 'set_elf_token',
+    args: [elfToken],
+  });
+  await client.waitForTransactionReceipt({ hash: wireTx, retries: 200 });
 
   // Seed the house bankroll so the very first bet doesn't trip the
   // "house bankroll too small" guard.
@@ -80,12 +101,13 @@ export default async function main(client: GenLayerClient<any>) {
       `NEXT_PUBLIC_GENLAYER_RPC=${process.env.NEXT_PUBLIC_GENLAYER_RPC ?? 'http://localhost:4000/api'}`,
       `NEXT_PUBLIC_SPORTSBOOK_ADDRESS=${sportsbook}`,
       `NEXT_PUBLIC_CASINO_ADDRESS=${casino}`,
+      `NEXT_PUBLIC_ELF_TOKEN_ADDRESS=${elfToken}`,
       '',
     ].join('\n'),
   );
 
   console.log('✅  Done.');
-  console.log({ sportsbook, casino, envFile: envPath });
+  console.log({ sportsbook, casino, elfToken, envFile: envPath });
 }
 
 async function deployContract(

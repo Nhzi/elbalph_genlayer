@@ -8,11 +8,19 @@ type Props = {
   disabled?: boolean;
   cta?: string;
   helper?: React.ReactNode;
+  currency?: string;
 };
 
 const PRESETS = [0.1, 0.5, 1, 5, 10];
 
-export function BetSlip({ defaultAmount = 1, onConfirm, disabled, cta = 'Place Bet', helper }: Props) {
+export function BetSlip({
+  defaultAmount = 1,
+  onConfirm,
+  disabled,
+  cta = 'Place Bet',
+  helper,
+  currency = 'ELF',
+}: Props) {
   const [amount, setAmount] = useState(defaultAmount);
   const [busy, setBusy] = useState(false);
 
@@ -32,7 +40,7 @@ export function BetSlip({ defaultAmount = 1, onConfirm, disabled, cta = 'Place B
         <div>
           <div className="text-[10px] uppercase tracking-widest text-white/40">Stake</div>
           <div className="font-display text-3xl font-bold tabular-nums">
-            {amount.toFixed(2)} <span className="text-base text-white/40">GEN</span>
+            {amount.toFixed(2)} <span className="text-base text-white/40">{currency}</span>
           </div>
         </div>
         <div className="flex gap-1">

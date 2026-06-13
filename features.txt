@@ -1,0 +1,12 @@
+Using GEN as the main currency will be wasteful, so this is what we are gonna do
+Create a token called ELF, will be displayed in the Landing page that we use ELF, bankroll address can mint an infinte amount of this token to effectively settle all bets and bids.
+Then another infinte minter should be the faucet addredd and contract that the user can get 100000 tokens to start
+The faucet should be in the fund section near the Address bar.
+
+Now a new landing page should be created, SOLELY FOR MOBILE, so it will aid responsiveness for mobile users
+
+the Dice, Coin and roulette lack details, so please i dont want a cub ut a die.
+
+Also we are making use of Gasless transactions, as signer can use ELF as the main Token in this project.
+
+So create a token, a faucet to claim these tokens (dont stress on designs), and responsive layout for mobile screens

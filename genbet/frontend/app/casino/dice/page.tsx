@@ -3,8 +3,8 @@
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { BetSlip } from '@/components/BetSlip';
-import { playDice } from '@/lib/contracts';
-import { fmtGen, gen } from '@/lib/genlayer';
+import { playDice, playDiceElf } from '@/lib/contracts';
+import { fmtGen, gen, elf, ELF_TOKEN_ADDRESS } from '@/lib/genlayer';
 
 const Dice3D = dynamic(() => import('@/components/three/Dice3D').then((m) => m.Dice3D), {
   ssr: false,
@@ -24,7 +24,9 @@ export default function DicePage() {
     setPayout(null);
     setSpinning(true);
     try {
-      const round = await playDice(target, gen(amount));
+      const round = ELF_TOKEN_ADDRESS
+        ? await playDiceElf(target, elf(amount))
+        : await playDice(target, gen(amount));
       setRoll(round?.detail?.roll ?? null);
       setPayout(round?.payout ?? '0');
     } finally {
@@ -45,7 +47,7 @@ export default function DicePage() {
             <div className="font-mono">
               Payout:{' '}
               <span className={payout === '0' ? 'text-white/50' : 'text-neon-green'}>
-                {fmtGen(payout)} GEN
+                {fmtGen(payout)} ELF
               </span>
             </div>
           </div>

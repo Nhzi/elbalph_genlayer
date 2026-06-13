@@ -173,6 +173,7 @@ export function getClient(): GenLayerClient<any> {
 
 export const SPORTSBOOK_ADDRESS = (process.env.NEXT_PUBLIC_SPORTSBOOK_ADDRESS ?? '') as `0x${string}`;
 export const CASINO_ADDRESS = (process.env.NEXT_PUBLIC_CASINO_ADDRESS ?? '') as `0x${string}`;
+export const ELF_TOKEN_ADDRESS = (process.env.NEXT_PUBLIC_ELF_TOKEN_ADDRESS ?? '') as `0x${string}`;
 
 export function gen(n: number | bigint): bigint {
   if (typeof n === 'bigint') return n * 10n ** 18n;
@@ -189,3 +190,7 @@ export function fmtGen(wei: string | bigint, places = 2): string {
   const fracStr = frac.toString().padStart(18, '0').slice(0, places).replace(/0+$/, '');
   return fracStr ? `${whole}.${fracStr}` : `${whole}`;
 }
+
+// ELF and GEN both use 18 decimals — alias for readability at call sites.
+export const elf = gen;
+export const fmtElf = fmtGen;

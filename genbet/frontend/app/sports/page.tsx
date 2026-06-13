@@ -185,6 +185,7 @@ export default function SportsPage() {
 
             <BetSlip
               cta={`Back ${OUTCOMES[picked]}`}
+              currency="GEN"
               disabled={selected.resolved}
               onConfirm={async (amount) => {
                 await placeSportsBet(selected.market_id, picked, gen(amount));

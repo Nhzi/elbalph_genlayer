@@ -2,7 +2,7 @@
 
 import { TransactionStatus } from 'genlayer-js/types';
 import type { TransactionHash } from 'genlayer-js/types';
-import { getClient, SPORTSBOOK_ADDRESS, CASINO_ADDRESS } from './genlayer';
+import { getClient, SPORTSBOOK_ADDRESS, CASINO_ADDRESS, ELF_TOKEN_ADDRESS } from './genlayer';
 
 /**
  * Thin wrappers around `client.readContract` / `client.writeContract`.
@@ -175,6 +175,63 @@ export async function playSlots(valueWei: bigint): Promise<CasinoRound> {
   return extractReturn(receipt);
 }
 
+// ────────── Gasless ELF-denominated casino plays ──────────
+// Mirror the GEN-payable play_* writes but pass stake as an ELF amount and
+// send `value: 0n`. The casino burns the stake from the user's ELF balance
+// and mints any payout back. No GEN ever leaves the player's wallet.
+
+export async function playCoinflipElf(callHeads: boolean, stakeElf: bigint): Promise<CasinoRound> {
+  const client = getClient();
+  const hash = await client.writeContract({
+    address: CASINO_ADDRESS,
+    functionName: 'play_coinflip_elf',
+    args: [callHeads, stakeElf.toString()],
+    value: 0n,
+  });
+  const receipt = await waitAccepted(hash);
+  return extractReturn(receipt);
+}
+
+export async function playDiceElf(targetUnder: number, stakeElf: bigint): Promise<CasinoRound> {
+  const client = getClient();
+  const hash = await client.writeContract({
+    address: CASINO_ADDRESS,
+    functionName: 'play_dice_elf',
+    args: [targetUnder, stakeElf.toString()],
+    value: 0n,
+  });
+  const receipt = await waitAccepted(hash);
+  return extractReturn(receipt);
+}
+
+export async function playRouletteElf(
+  betType: 'number' | 'red' | 'black' | 'even' | 'odd' | 'low' | 'high',
+  betValue: number,
+  stakeElf: bigint,
+): Promise<CasinoRound> {
+  const client = getClient();
+  const hash = await client.writeContract({
+    address: CASINO_ADDRESS,
+    functionName: 'play_roulette_elf',
+    args: [betType, betValue, stakeElf.toString()],
+    value: 0n,
+  });
+  const receipt = await waitAccepted(hash);
+  return extractReturn(receipt);
+}
+
+export async function playSlotsElf(stakeElf: bigint): Promise<CasinoRound> {
+  const client = getClient();
+  const hash = await client.writeContract({
+    address: CASINO_ADDRESS,
+    functionName: 'play_slots_elf',
+    args: [stakeElf.toString()],
+    value: 0n,
+  });
+  const receipt = await waitAccepted(hash);
+  return extractReturn(receipt);
+}
+
 export async function recentRounds(limit = 20): Promise<CasinoRound[]> {
   const client = getClient();
   return (await client.readContract({
@@ -196,6 +253,52 @@ export async function houseBalance(): Promise<string> {
 export async function getBalance(addr: `0x${string}`): Promise<bigint> {
   const client = getClient();
   return client.getBalance({ address: addr });
+}
+
+// ─────────────────────────────── ELF token ─────────────────────────────────
+
+export async function elfBalanceOf(addr: `0x${string}`): Promise<string> {
+  if (!ELF_TOKEN_ADDRESS) return '0';
+  const client = getClient();
+  return (await client.readContract({
+    address: ELF_TOKEN_ADDRESS,
+    functionName: 'balance_of',
+    args: [addr],
+  })) as string;
+}
+
+export async function elfHasClaimed(addr: `0x${string}`): Promise<boolean> {
+  if (!ELF_TOKEN_ADDRESS) return false;
+  const client = getClient();
+  return (await client.readContract({
+    address: ELF_TOKEN_ADDRESS,
+    functionName: 'has_claimed',
+    args: [addr],
+  })) as boolean;
+}
+
+export async function elfClaimFaucet() {
+  const client = getClient();
+  const hash = await client.writeContract({
+    address: ELF_TOKEN_ADDRESS,
+    functionName: 'claim_faucet',
+    args: [],
+    value: 0n,
+  });
+  const receipt = await waitAccepted(hash);
+  return { hash, receipt };
+}
+
+export async function elfTransfer(to: `0x${string}`, amount: bigint) {
+  const client = getClient();
+  const hash = await client.writeContract({
+    address: ELF_TOKEN_ADDRESS,
+    functionName: 'transfer',
+    args: [to, amount.toString()],
+    value: 0n,
+  });
+  const receipt = await waitAccepted(hash);
+  return { hash, receipt };
 }
 
 function extractReturn(receipt: any): any {

@@ -8,12 +8,14 @@ import {
   getMode,
   subscribeInjected,
 } from '@/lib/genlayer';
-import { getBalance } from '@/lib/contracts';
+import { getBalance, elfBalanceOf, elfHasClaimed } from '@/lib/contracts';
 import { useStore } from '@/lib/store';
 
 export function GenLayerProvider({ children }: { children: React.ReactNode }) {
   const setAddress = useStore((s) => s.setAddress);
   const setBalance = useStore((s) => s.setBalance);
+  const setElfBalance = useStore((s) => s.setElfBalance);
+  const setHasClaimedFaucet = useStore((s) => s.setHasClaimedFaucet);
   const setMode = useStore((s) => s.setMode);
   const mode = useStore((s) => s.mode);
 
@@ -39,14 +41,23 @@ export function GenLayerProvider({ children }: { children: React.ReactNode }) {
 
     if (!addr) {
       setBalance(0n);
+      setElfBalance(0n);
+      setHasClaimedFaucet(false);
       return;
     }
 
     let cancelled = false;
     const refresh = async () => {
       try {
-        const bal = await getBalance(addr);
-        if (!cancelled) setBalance(bal);
+        const [bal, elfBalStr, claimed] = await Promise.all([
+          getBalance(addr).catch(() => 0n),
+          elfBalanceOf(addr).catch(() => '0'),
+          elfHasClaimed(addr).catch(() => false),
+        ]);
+        if (cancelled) return;
+        setBalance(bal);
+        setElfBalance(BigInt(elfBalStr || '0'));
+        setHasClaimedFaucet(claimed);
       } catch {
         // Ignore — RPC may be unreachable briefly during chain switch.
       }
@@ -57,7 +68,7 @@ export function GenLayerProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
       clearInterval(t);
     };
-  }, [mode, setAddress, setBalance]);
+  }, [mode, setAddress, setBalance, setElfBalance, setHasClaimedFaucet]);
 
   return <>{children}</>;
 }

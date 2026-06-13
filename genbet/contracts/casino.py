@@ -52,12 +52,28 @@ class Casino(gl.Contract):
     bankroll: u256  # explicit house pool — `self.balance` is only credited
                     # on live networks (ghost contract). Tracking it ourselves
                     # keeps direct-mode tests and on-chain behaviour identical.
+    elf_token: Address  # address of the ELF ERC20-like token used for gasless bets
 
     def __init__(self):
         self.owner = gl.message.sender_address
         self.next_round_id = u256(1)
         self.nonce = u256(0)
         self.bankroll = u256(0)
+        self.elf_token = Address(b"\x00" * 20)
+
+    # ─────────────────────────── elf token wiring ───────────────────────────
+
+    @gl.public.write
+    def set_elf_token(self, addr: Address) -> bool:
+        """Owner sets the ELF token contract this casino settles bets against."""
+        if gl.message.sender_address != self.owner:
+            raise gl.vm.UserError("only owner can set elf token")
+        self.elf_token = addr
+        return True
+
+    @gl.public.view
+    def get_elf_token(self) -> str:
+        return self.elf_token.as_hex
 
     # ─────────────────────────── bankroll management ────────────────────────
 
@@ -218,6 +234,115 @@ class Casino(gl.Contract):
             _send_gen(gl.message.sender_address, u256(payout))
         return result
 
+    # ─────────────────────── gasless ELF play paths ─────────────────────────
+    #
+    # Mirror the .payable game methods but settle bets in ELF rather than
+    # native GEN. The casino must be a minter on the ELF token. The user
+    # never sends value; we burn their stake and mint payout on a win.
+
+    @gl.public.write
+    def play_coinflip_elf(self, call_heads: bool, stake: int) -> dict:
+        s = self._elf_take_stake(stake, 195, 100)
+        seed = self._next_seed()
+        outcome_bit = seed[0] & 1
+        won = (outcome_bit == 1) == call_heads
+        payout = (s * 195) // 100 if won else 0
+        detail = json.dumps(
+            {"called": "heads" if call_heads else "tails",
+             "landed": "heads" if outcome_bit == 1 else "tails",
+             "won": won},
+            sort_keys=True,
+        )
+        result = self._record_round(GAME_COINFLIP, u256(s), u256(payout), seed.hex(), detail)
+        if payout > 0:
+            _mint_elf(self.elf_token, gl.message.sender_address, payout)
+        return result
+
+    @gl.public.write
+    def play_dice_elf(self, target_under: int, stake: int) -> dict:
+        if target_under < 2 or target_under > 95:
+            raise gl.vm.UserError("target_under must be in [2, 95]")
+        s = self._elf_take_stake(stake, 98 * 100 // target_under, 100)
+        seed = self._next_seed()
+        roll = (int.from_bytes(seed[:8], "big") % 100) + 1
+        won = roll <= target_under
+        payout = (s * 98) // target_under if won else 0
+        detail = json.dumps(
+            {"target_under": target_under, "roll": roll, "won": won},
+            sort_keys=True,
+        )
+        result = self._record_round(GAME_DICE, u256(s), u256(payout), seed.hex(), detail)
+        if payout > 0:
+            _mint_elf(self.elf_token, gl.message.sender_address, payout)
+        return result
+
+    @gl.public.write
+    def play_roulette_elf(self, bet_type: str, bet_value: int, stake: int) -> dict:
+        valid_types = {"number", "red", "black", "even", "odd", "low", "high"}
+        if bet_type not in valid_types:
+            raise gl.vm.UserError("unknown bet_type")
+        if bet_type == "number" and (bet_value < 0 or bet_value > 36):
+            raise gl.vm.UserError("number must be 0..36")
+        max_mult_numer = 36 if bet_type == "number" else 2
+        s = self._elf_take_stake(stake, max_mult_numer, 1)
+        seed = self._next_seed()
+        spin = int.from_bytes(seed[:8], "big") % 37
+        red_numbers = {1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36}
+        won = False
+        if bet_type == "number":
+            won = spin == bet_value
+            multiplier = 36 if won else 0
+        else:
+            if spin == 0:
+                won = False
+            elif bet_type == "red":
+                won = spin in red_numbers
+            elif bet_type == "black":
+                won = spin not in red_numbers
+            elif bet_type == "even":
+                won = spin % 2 == 0
+            elif bet_type == "odd":
+                won = spin % 2 == 1
+            elif bet_type == "low":
+                won = 1 <= spin <= 18
+            elif bet_type == "high":
+                won = 19 <= spin <= 36
+            multiplier = 2 if won else 0
+        payout = s * multiplier
+        detail = json.dumps(
+            {"bet_type": bet_type, "bet_value": bet_value, "spin": spin,
+             "color": ("green" if spin == 0 else "red" if spin in red_numbers else "black"),
+             "won": won},
+            sort_keys=True,
+        )
+        result = self._record_round(GAME_ROULETTE, u256(s), u256(payout), seed.hex(), detail)
+        if payout > 0:
+            _mint_elf(self.elf_token, gl.message.sender_address, payout)
+        return result
+
+    @gl.public.write
+    def play_slots_elf(self, stake: int) -> dict:
+        s = self._elf_take_stake(stake, 50, 1)
+        seed = self._next_seed()
+        reels = [
+            SLOT_SYMBOLS[seed[0] % len(SLOT_SYMBOLS)],
+            SLOT_SYMBOLS[seed[1] % len(SLOT_SYMBOLS)],
+            SLOT_SYMBOLS[seed[2] % len(SLOT_SYMBOLS)],
+        ]
+        multiplier = 0
+        if reels[0] == reels[1] == reels[2]:
+            multiplier = 50 if reels[0] == "7" else 20 if reels[0] == "BAR" else 10
+        elif reels.count("7") == 2:
+            multiplier = 5
+        elif len(set(reels)) == 2:
+            multiplier = 2
+        payout = s * multiplier
+        detail = json.dumps({"reels": reels, "won": multiplier > 0, "multiplier": multiplier}, sort_keys=True)
+        result = self._record_round(GAME_SLOTS, u256(s), u256(payout), seed.hex(), detail)
+        if payout > 0:
+            _mint_elf(self.elf_token, gl.message.sender_address, payout)
+        return result
+
     # ───────────────────────────────── views ────────────────────────────────
 
     @gl.public.view
@@ -287,6 +412,18 @@ class Casino(gl.Contract):
         # payout there.
         return stake
 
+    def _elf_take_stake(self, stake: int, payout_multiplier_numer: int, denom: int) -> int:
+        """Burn ELF from sender + verify bankroll covers worst-case payout."""
+        if stake <= 0:
+            raise gl.vm.UserError("stake must be > 0")
+        if self.elf_token == Address(b"\x00" * 20):
+            raise gl.vm.UserError("elf token not configured")
+        max_payout = (stake * payout_multiplier_numer) // max(denom, 1)
+        if int(self.bankroll) < max_payout:
+            raise gl.vm.UserError("house bankroll too small for this stake")
+        _burn_elf(self.elf_token, gl.message.sender_address, stake)
+        return stake
+
     def _record_round(
         self,
         game: u8,
@@ -341,3 +478,27 @@ def _send_gen(to: Address, value: u256) -> None:
     if value == u256(0):
         return
     _Payee(to).emit_transfer(value=value)
+
+
+# ─────────────────────── ELF token cross-contract calls ────────────────────
+#
+# The casino burns user stake on bet placement and mints payout on win. It
+# must already be authorized as a minter on the ELF token contract — the
+# deploy script does that registration.
+#
+# Note: inter-contract writes via `.emit()` are *deferred* — they enqueue a
+# message that runs after the current call. That's fine for the burn/mint
+# settlement pair, since the seed-driven outcome is deterministic before
+# either side-effect lands.
+
+
+def _burn_elf(token: Address, from_addr: Address, amount: int) -> None:
+    if amount <= 0:
+        return
+    gl.get_contract_at(token).emit().burn(from_addr, amount)
+
+
+def _mint_elf(token: Address, to: Address, amount: int) -> None:
+    if amount <= 0:
+        return
+    gl.get_contract_at(token).emit().mint(to, amount)

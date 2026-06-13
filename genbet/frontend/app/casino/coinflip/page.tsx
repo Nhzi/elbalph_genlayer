@@ -3,8 +3,8 @@
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { BetSlip } from '@/components/BetSlip';
-import { playCoinflip } from '@/lib/contracts';
-import { fmtGen, gen } from '@/lib/genlayer';
+import { playCoinflip, playCoinflipElf } from '@/lib/contracts';
+import { fmtGen, gen, elf, ELF_TOKEN_ADDRESS } from '@/lib/genlayer';
 
 const CoinFlip3D = dynamic(() => import('@/components/three/CoinFlip3D').then((m) => m.CoinFlip3D), {
   ssr: false,
@@ -21,7 +21,9 @@ export default function CoinflipPage() {
     setPayout(null);
     setSpinning(true);
     try {
-      const round = await playCoinflip(callHeads, gen(amount));
+      const round = ELF_TOKEN_ADDRESS
+        ? await playCoinflipElf(callHeads, elf(amount))
+        : await playCoinflip(callHeads, gen(amount));
       const landed = round?.detail?.landed === 'heads' ? 'heads' : 'tails';
       setResult(landed);
       setPayout(round?.payout ?? '0');
@@ -45,7 +47,7 @@ export default function CoinflipPage() {
               <div className="mt-1 font-mono text-sm">
                 Payout:{' '}
                 <span className={payout === '0' ? 'text-white/50' : 'text-neon-green'}>
-                  {fmtGen(payout)} GEN
+                  {fmtGen(payout)} ELF
                 </span>
               </div>
             )}

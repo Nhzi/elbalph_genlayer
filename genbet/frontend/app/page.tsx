@@ -8,11 +8,20 @@ import {
   recentRounds,
   listMarkets,
   playCoinflip,
+  playCoinflipElf,
   CasinoRound,
   SportsMarket,
 } from '@/lib/contracts';
-import { fmtGen, gen, SPORTSBOOK_ADDRESS, CASINO_ADDRESS } from '@/lib/genlayer';
+import {
+  fmtGen,
+  gen,
+  elf,
+  SPORTSBOOK_ADDRESS,
+  CASINO_ADDRESS,
+  ELF_TOKEN_ADDRESS,
+} from '@/lib/genlayer';
 import { useStore } from '@/lib/store';
+import { MobileLanding } from '@/components/MobileLanding';
 
 const CoinFlip3D = dynamic(
   () => import('@/components/three/CoinFlip3D').then((m) => m.CoinFlip3D),
@@ -73,7 +82,11 @@ export default function Lobby() {
     setDemoPayout(null);
     setDemoSpinning(true);
     try {
-      const round = await playCoinflip(demoSide === 'heads', gen(0.1));
+      // Prefer the gasless ELF path when the token is configured; fall back to
+      // the original GEN-payable path for local dev where ELF may be absent.
+      const round = ELF_TOKEN_ADDRESS
+        ? await playCoinflipElf(demoSide === 'heads', elf(0.1))
+        : await playCoinflip(demoSide === 'heads', gen(0.1));
       const landed = round?.detail?.landed === 'heads' ? 'heads' : 'tails';
       setDemoResult(landed);
       setDemoPayout(round?.payout ?? '0');
@@ -85,7 +98,18 @@ export default function Lobby() {
   };
 
   return (
-    <div className="space-y-24 pt-6">
+    <>
+      {/* Mobile-only landing — solely for sub-md screens. */}
+      <div className="md:hidden">
+        <MobileLanding
+          house={house}
+          totalSportsPool={totalSportsPool}
+          rounds={rounds}
+          markets={markets}
+        />
+      </div>
+
+      <div className="hidden space-y-24 pt-6 md:block">
       {/* ─────────────────────── HERO ─────────────────────── */}
       <section className="relative grid items-center gap-10 lg:grid-cols-[1.1fr_1fr]">
         <div className="absolute -top-32 left-1/2 -z-10 h-[480px] w-[480px] -translate-x-1/2 rounded-full bg-neon-green/10 blur-3xl" />
@@ -105,9 +129,11 @@ export default function Lobby() {
           </h1>
           <p className="mt-5 max-w-xl text-lg text-white/65">
             <span className="font-semibold text-white">ELBALPH</span> is a betting house written
-            as intelligent contracts. Sports markets are settled by validators that read the score
-            page themselves; casino games are seeded from on-chain entropy and paid in a single
-            transaction. No oracles. No admin keys. No edge you can&apos;t audit.
+            as intelligent contracts. All bets are settled in{' '}
+            <span className="font-semibold text-neon-gold">ELF</span>, the in-app token —
+            gasless to you, audit-trail for everyone. Sports markets are resolved by validators
+            reading the score page themselves; casino games are seeded from on-chain entropy and
+            paid in a single transaction. No oracles. No admin keys.
           </p>
 
           <div className="mt-7 flex flex-wrap items-center gap-3">
@@ -126,10 +152,10 @@ export default function Lobby() {
           </div>
 
           <div className="mt-9 grid max-w-lg grid-cols-3 gap-3">
-            <Stat label="House bankroll" value={`${fmtGen(house, 1)} GEN`} accent="text-neon-green" />
+            <Stat label="House bankroll" value={`${fmtGen(house, 1)} ELF`} accent="text-neon-gold" />
             <Stat
               label="Sports pool"
-              value={`${fmtGen(totalSportsPool, 1)} GEN`}
+              value={`${fmtGen(totalSportsPool, 1)} ELF`}
               accent="text-neon-cyan"
             />
             <Stat
@@ -146,7 +172,7 @@ export default function Lobby() {
           <CoinFlip3D result={demoResult} spinning={demoSpinning} />
           <div className="mt-4 flex items-center justify-between">
             <div className="text-[10px] uppercase tracking-widest text-white/40">
-              try it · 0.1 GEN
+              try it · 0.1 ELF
             </div>
             <div className="flex gap-1 rounded-lg border border-white/10 bg-white/[0.03] p-1">
               {(['heads', 'tails'] as const).map((s) => (
@@ -179,7 +205,7 @@ export default function Lobby() {
                   demoPayout && demoPayout !== '0' ? 'text-neon-green' : 'text-white/50'
                 }
               >
-                Payout: {fmtGen(demoPayout ?? '0', 3)} GEN
+                Payout: {fmtGen(demoPayout ?? '0', 3)} ELF
               </span>
             </div>
           )}
@@ -224,7 +250,7 @@ export default function Lobby() {
                     {r.bettor.slice(0, 6)}…{r.bettor.slice(-4)}
                   </div>
                   <div className="mt-2 flex items-baseline justify-between">
-                    <span className="text-xs text-white/50">{fmtGen(r.stake, 2)} GEN</span>
+                    <span className="text-xs text-white/50">{fmtGen(r.stake, 2)} ELF</span>
                     <span
                       className={`font-mono text-sm font-semibold ${
                         won ? 'text-neon-green' : 'text-white/50'
@@ -305,7 +331,7 @@ export default function Lobby() {
             </ul>
             <div className="mt-6 flex items-center justify-between text-sm">
               <span className="font-mono text-white/50">
-                bankroll {fmtGen(house, 1)} GEN
+                bankroll {fmtGen(house, 1)} ELF
               </span>
               <span className="font-semibold text-neon-pink">Enter casino →</span>
             </div>
@@ -435,7 +461,8 @@ export default function Lobby() {
           </div>
         </div>
       </section>
-    </div>
+      </div>
+    </>
   );
 }
 
